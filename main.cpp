@@ -28,6 +28,7 @@ int main(int argc, char *argv[])
      */
     ApiHandle apiHandle;
     uint32_t messageCount = 10;
+    uint32_t intervalSec = 1;
 
     /*********************** Parse Arguments ***************************/
     Utils::CommandLineUtils cmdUtils = Utils::CommandLineUtils();
@@ -40,6 +41,7 @@ int main(int argc, char *argv[])
     cmdUtils.RegisterCommand("client_id", "<str>", "Client id to use (optional, default='test-*')");
     cmdUtils.RegisterCommand("count", "<int>", "The number of messages to send (optional, default='10')");
     cmdUtils.RegisterCommand("port_override", "<int>", "The port override to use when connecting (optional)");
+    cmdUtils.RegisterCommand("pub_interval", "<int>", "Specify wait time(in seconds) between two publish messages (optional, default=1)");
     cmdUtils.AddLoggingCommands();
     const char **const_argv = (const char **)argv;
     cmdUtils.SendArguments(const_argv, const_argv + argc);
@@ -55,6 +57,15 @@ int main(int argc, char *argv[])
         if (count > 0)
         {
             messageCount = count;
+        }
+    }
+
+    if (cmdUtils.HasCommand("pub_interval"))
+    {
+        int interval = atoi(cmdUtils.GetCommand("pub_interval").c_str());
+        if (interval > 0)
+        {
+            intervalSec = interval;
         }
     }
 
@@ -180,7 +191,7 @@ int main(int argc, char *argv[])
             connection->Publish(topic.c_str(), AWS_MQTT_QOS_AT_LEAST_ONCE, false, payload, onPublishComplete);
             ++publishedCount;
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000 * intervalSec));
         }
 
         {
