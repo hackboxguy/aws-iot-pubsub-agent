@@ -129,7 +129,7 @@ namespace Utils
 
         for (auto const &pair : m_registeredCommands)
         {
-            fprintf(stdout, "* %s:\t\t%s\n", pair.first.c_str(), pair.second.m_helpOutput.c_str());
+            fprintf(stdout, "* %-20s: %s\n", pair.first.c_str(), pair.second.m_helpOutput.c_str());
         }
 
         fprintf(stdout, "\n");
