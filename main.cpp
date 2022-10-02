@@ -13,6 +13,7 @@
 #include <aws/crt/UUID.h>
 #include <chrono>
 #include <mutex>
+#include <thread>
 
 //#include <aws/common/CommandLineUtils.h>
 #include "CommandLineUtils.h"
