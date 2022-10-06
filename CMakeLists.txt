@@ -23,4 +23,11 @@ endif ()
 
 find_package(aws-crt-cpp REQUIRED)
 install(TARGETS ${COMPONENT_NAME} DESTINATION sbin)
+
+file(GLOB ROOTCA_FILE "configs/*.pem")
+install(FILES ${ROOTCA_FILE} DESTINATION etc)
+
+file(GLOB CONF_FILE "configs/*.conf")
+install(FILES ${CONF_FILE} DESTINATION etc)
+
 target_link_libraries(${PROJECT_NAME} AWS::aws-crt-cpp)
