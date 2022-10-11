@@ -191,7 +191,7 @@ int main(int argc, char *argv[])
         {
             ByteBuf payload = ByteBufFromArray((const uint8_t *)messagePayload.data(), messagePayload.length());
 
-            auto onPublishComplete = [](Mqtt::MqttConnection &, uint16_t, int)
+            auto onPublishComplete = [topic](Mqtt::MqttConnection &, uint16_t, int)
             {
                 fprintf(stdout, "Publish Complete on topic %s\n",topic.c_str());
             };
