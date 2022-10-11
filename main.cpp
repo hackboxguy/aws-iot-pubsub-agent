@@ -30,7 +30,6 @@ int main(int argc, char *argv[])
     ApiHandle apiHandle;
     uint32_t messageCount = 10;
     uint32_t intervalSec = 1;
-
     /*********************** Parse Arguments ***************************/
     Utils::CommandLineUtils cmdUtils = Utils::CommandLineUtils();
     cmdUtils.RegisterProgramName("basic_pub_sub");
@@ -43,6 +42,7 @@ int main(int argc, char *argv[])
     cmdUtils.RegisterCommand("count", "<int>", "The number of messages to send (optional, default='10')");
     cmdUtils.RegisterCommand("port_override", "<int>", "The port override to use when connecting (optional)");
     cmdUtils.RegisterCommand("pub_interval", "<int>", "Specify wait time(in seconds) between two publish messages (optional, default=1)");
+    cmdUtils.RegisterCommand("subtopic", "<str>", "subscribe to a topic(optional, default=test/topic)");
     cmdUtils.AddLoggingCommands();
     const char **const_argv = (const char **)argv;
     cmdUtils.SendArguments(const_argv, const_argv + argc);
@@ -50,6 +50,7 @@ int main(int argc, char *argv[])
 
     String topic = cmdUtils.GetCommandOrDefault("topic", "test/topic");
     String clientId = cmdUtils.GetCommandOrDefault("client_id", String("test-") + Aws::Crt::UUID().ToString());
+    String subtopic = cmdUtils.GetCommandOrDefault("subtopic", "test/topic");
 
     String messagePayload = cmdUtils.GetCommandOrDefault("message", "Hello world!");
     if (cmdUtils.HasCommand("count"))
@@ -149,6 +150,8 @@ int main(int argc, char *argv[])
                 fprintf(stdout, "Message: ");
                 fwrite(byteBuf.buffer, 1, byteBuf.len, stdout);
                 fprintf(stdout, "\n");
+                /* TODO: take an action here after receiving the message */
+                /* call a script(which is passed as an argument) as system-call*/
             }
 
             receiveSignal.notify_all();
@@ -180,7 +183,7 @@ int main(int argc, char *argv[])
                 subscribeFinishedPromise.set_value();
             };
 
-        connection->Subscribe(topic.c_str(), AWS_MQTT_QOS_AT_LEAST_ONCE, onMessage, onSubAck);
+        connection->Subscribe(subtopic.c_str(), AWS_MQTT_QOS_AT_LEAST_ONCE, onMessage, onSubAck);
         subscribeFinishedPromise.get_future().wait();
 
         uint32_t publishedCount = 0;
@@ -188,7 +191,10 @@ int main(int argc, char *argv[])
         {
             ByteBuf payload = ByteBufFromArray((const uint8_t *)messagePayload.data(), messagePayload.length());
 
-            auto onPublishComplete = [](Mqtt::MqttConnection &, uint16_t, int) {};
+            auto onPublishComplete = [](Mqtt::MqttConnection &, uint16_t, int)
+            {
+                fprintf(stdout, "Publish Complete on topic %s\n",topic.c_str());
+            };
             connection->Publish(topic.c_str(), AWS_MQTT_QOS_AT_LEAST_ONCE, false, payload, onPublishComplete);
             ++publishedCount;
 
@@ -200,12 +206,17 @@ int main(int argc, char *argv[])
             receiveSignal.wait(receivedLock, [&] { return receivedCount >= messageCount; });
         }
 
+        /* Just wait here(processing subscribed topics) till SIGTERM is sent to this process */
+        fprintf(stdout, "Just Waiting for SIGTERM or CTRL+x\n");
+        while(1)
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
         /*
          * Unsubscribe from the topic.
          */
         std::promise<void> unsubscribeFinishedPromise;
         connection->Unsubscribe(
-            topic.c_str(), [&](Mqtt::MqttConnection &, uint16_t, int) { unsubscribeFinishedPromise.set_value(); });
+            subtopic.c_str(), [&](Mqtt::MqttConnection &, uint16_t, int) { unsubscribeFinishedPromise.set_value(); });
         unsubscribeFinishedPromise.get_future().wait();
 
         /* Disconnect */
