@@ -14,11 +14,18 @@
 #include <chrono>
 #include <mutex>
 #include <thread>
-
+#include <sys/stat.h>
+#include <fstream>
 //#include <aws/common/CommandLineUtils.h>
 #include "CommandLineUtils.h"
 
 using namespace Aws::Crt;
+
+//custom extensions to sample program
+#define MAX_PAYLOAD_SIZE 4096 //lets limit the message size to 4kb
+#define SUBSCRIBER_DATA_FILE "/tmp/subscriber-data-file.txt"
+String InvokeShellCommand(const char* command);
+bool IsValidFile(const char* filepath);
 
 int main(int argc, char *argv[])
 {
@@ -43,6 +50,8 @@ int main(int argc, char *argv[])
     cmdUtils.RegisterCommand("port_override", "<int>", "The port override to use when connecting (optional)");
     cmdUtils.RegisterCommand("pub_interval", "<int>", "Specify wait time(in seconds) between two publish messages (optional, default=1)");
     cmdUtils.RegisterCommand("subtopic", "<str>", "subscribe to a topic(optional, default=test/topic)");
+    cmdUtils.RegisterCommand("subtopic_handler", "<str>", "a handler script to take action when message arrives");
+
     cmdUtils.AddLoggingCommands();
     const char **const_argv = (const char **)argv;
     cmdUtils.SendArguments(const_argv, const_argv + argc);
@@ -51,7 +60,7 @@ int main(int argc, char *argv[])
     String topic = cmdUtils.GetCommandOrDefault("topic", "test/topic");
     String clientId = cmdUtils.GetCommandOrDefault("client_id", String("test-") + Aws::Crt::UUID().ToString());
     String subtopic = cmdUtils.GetCommandOrDefault("subtopic", "test/topic");
-
+    String subTopicHandler = cmdUtils.GetCommandOrDefault("subtopic_handler", "");
     String messagePayload = cmdUtils.GetCommandOrDefault("message", "Hello world!");
     if (cmdUtils.HasCommand("count"))
     {
@@ -150,8 +159,28 @@ int main(int argc, char *argv[])
                 fprintf(stdout, "Message: ");
                 fwrite(byteBuf.buffer, 1, byteBuf.len, stdout);
                 fprintf(stdout, "\n");
-                /* TODO: take an action here after receiving the message */
-                /* call a script(which is passed as an argument) as system-call*/
+
+                //a handler needs to process incoming message
+                //check if user has passed a handler binary or script, and let it process the data
+                char incomingMsg[MAX_PAYLOAD_SIZE];
+                if(byteBuf.len<MAX_PAYLOAD_SIZE)
+                {
+                    strncpy((char*)incomingMsg,(char*)byteBuf.buffer,byteBuf.len);
+                    incomingMsg[byteBuf.len] = '\0';
+                    if(IsValidFile(subTopicHandler.c_str())) //check if subscribe topic handler binay exists
+                    {
+                        //pass the incoming payload to handler via file
+                        String dataIn(incomingMsg);
+                        std::ofstream subscrData(SUBSCRIBER_DATA_FILE,std::ofstream::out | std::ofstream::trunc);
+                        subscrData << dataIn << std::endl;
+                        subscrData.close();
+                        String invokeCommand = subTopicHandler + " " + SUBSCRIBER_DATA_FILE;
+                        //e.g "/usr/sbin/blink-led.sh /tmp/incoming-data.json"
+                        InvokeShellCommand(invokeCommand.c_str());
+                    }
+                    else
+                        fprintf(stdout, "handler for incoming topic not found\n");
+                }
             }
 
             receiveSignal.notify_all();
@@ -187,9 +216,17 @@ int main(int argc, char *argv[])
         subscribeFinishedPromise.get_future().wait();
 
         uint32_t publishedCount = 0;
+
+        //check if message is a string or path to a shell-script
+        String msgPayload;
+        if(IsValidFile(messagePayload.c_str())) //its a file in the rootfs
+            msgPayload=InvokeShellCommand(messagePayload.c_str());//e.g /usr/sbin/read-temperature.sh
+        else //else its just a string
+            msgPayload=messagePayload;
+
         while (publishedCount < messageCount)
         {
-            ByteBuf payload = ByteBufFromArray((const uint8_t *)messagePayload.data(), messagePayload.length());
+            ByteBuf payload = ByteBufFromArray((const uint8_t *)msgPayload.data(), msgPayload.length());
 
             auto onPublishComplete = [topic](Mqtt::MqttConnection &, uint16_t, int)
             {
@@ -232,3 +269,31 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+/*****************************************************************************/
+//custom extensions to sample program
+//from a security perspective this is not a good idea to allow invoking remote commands,
+//but as a demo application, we will allow this and we assume user of this binary knows how to use it
+String InvokeShellCommand(const char* command)
+{
+    std::array<char, 128> buffer;
+    String result;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(command, "r"), pclose);
+    if (!pipe) {
+        throw std::runtime_error("popen() failed!");
+    }
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result += buffer.data();
+    }
+    return result;
+}
+//check if this is a valid file in the filesystem
+bool IsValidFile(const char* filepath)
+{
+        struct stat buffer;
+        if(stat(filepath,&buffer)!=0)
+                return false;
+        if(buffer.st_mode & S_IFREG)
+                return true;
+        return false;//it could be a directory
+}
+/*****************************************************************************/
