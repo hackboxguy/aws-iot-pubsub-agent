@@ -80,6 +80,40 @@ int main(int argc, char *argv[])
         }
     }
 
+    /* do some basic tests for availability of CA/Cert/Key files and endpoint */
+    String tmpString = cmdUtils.GetCommand("ca_file");
+    if(!IsValidFile(tmpString.c_str()))
+    {
+        fprintf(stdout, "CA_FILE not found!!!\n");
+        while(1)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        exit(-1);
+    }
+    tmpString = cmdUtils.GetCommand("key");
+    if(!IsValidFile(tmpString.c_str()))
+    {
+        fprintf(stdout, "PRIVATE_KEY_FILE not found!!!\n");
+        while(1)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        exit(-1);
+    }
+    tmpString = cmdUtils.GetCommand("cert");
+    if(!IsValidFile(tmpString.c_str()))
+    {
+        fprintf(stdout, "DEVICE_CERTIFICATE_FILE not found!!!\n");
+        while(1)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        exit(-1);
+    }
+    tmpString = cmdUtils.GetCommand("endpoint");
+    if(tmpString == "replace.this.with.your.endpoint")
+    {
+        fprintf(stdout, "looks like endpoint is not correctly specified!!!\n");
+        while(1)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        exit(-1);
+    }
+
     /* Get a MQTT client connection from the command parser */
     auto connection = cmdUtils.BuildMQTTConnection();
 
