@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/types.h>
+#include <string.h>
 
 static const char* socket_path = "/tmp/aws-iot-demo-agent-ipc-node";
 static const unsigned int nIncomingConnections = 5;
