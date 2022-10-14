@@ -7,7 +7,7 @@
 #include <sys/un.h>
 #include <sys/types.h>
 
-static const char* socket_path = "/home/adav/tmp/mysocket";
+static const char* socket_path = "/tmp/aws-iot-demo-agent-ipc-node";
 static const unsigned int nIncomingConnections = 5;
 
 namespace DomainSock
