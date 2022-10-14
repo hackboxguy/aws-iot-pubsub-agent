@@ -64,8 +64,9 @@ int main(int argc, char *argv[])
     String messagePayload = cmdUtils.GetCommandOrDefault("message", "Hello world!");
     if (cmdUtils.HasCommand("count"))
     {
+        //TODO: what if count arg has some non-numeral chars? we need to handle this error
         int count = atoi(cmdUtils.GetCommand("count").c_str());
-        if (count > 0)
+        //if (count > 0)
         {
             messageCount = count;
         }
@@ -212,8 +213,8 @@ int main(int argc, char *argv[])
                         //e.g "/usr/sbin/blink-led.sh /tmp/incoming-data.json"
                         InvokeShellCommand(invokeCommand.c_str());
                     }
-                    else
-                        fprintf(stdout, "handler for incoming topic not found\n");
+                    //else
+                        //fprintf(stdout, "handler for incoming topic not found\n");
                 }
             }
 
@@ -250,27 +251,28 @@ int main(int argc, char *argv[])
         subscribeFinishedPromise.get_future().wait();
 
         uint32_t publishedCount = 0;
-
-        //check if message is a string or path to a shell-script
         String msgPayload;
-        if(IsValidFile(messagePayload.c_str())) //its a file in the rootfs
-            msgPayload=InvokeShellCommand(messagePayload.c_str());//e.g /usr/sbin/read-temperature.sh
-        else //else its just a string
-            msgPayload=messagePayload;
-
         while (publishedCount < messageCount)
         {
-            ByteBuf payload = ByteBufFromArray((const uint8_t *)msgPayload.data(), msgPayload.length());
+            //check if message is a string or path to a shell-script
+            if(IsValidFile(messagePayload.c_str())) //its a file in the rootfs
+                msgPayload=InvokeShellCommand(messagePayload.c_str());//e.g /usr/sbin/read-temperature.sh shall print json string
+            else //else its just a string
+                msgPayload=messagePayload;
 
+            ByteBuf payload = ByteBufFromArray((const uint8_t *)msgPayload.data(), msgPayload.length());
             auto onPublishComplete = [topic](Mqtt::MqttConnection &, uint16_t, int)
             {
                 fprintf(stdout, "Publish Complete on topic %s\n",topic.c_str());
             };
             connection->Publish(topic.c_str(), AWS_MQTT_QOS_AT_LEAST_ONCE, false, payload, onPublishComplete);
-            ++publishedCount;
+
+            if(messageCount>=0)//if count == -1 then run the loop forever till SIGTERM is received
+                ++publishedCount;
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1000 * intervalSec));
         }
+        //TODO wait in a thread to listen to linux-domain socket and wait for message arrival from different process
 
         {
             std::unique_lock<std::mutex> receivedLock(receiveMutex);
