@@ -254,19 +254,21 @@ int main(int argc, char *argv[])
         String msgPayload;
         while (publishedCount < messageCount)
         {
-            //check if message is a string or path to a shell-script
-            if(IsValidFile(messagePayload.c_str())) //its a file in the rootfs
-                msgPayload=InvokeShellCommand(messagePayload.c_str());//e.g /usr/sbin/read-temperature.sh shall print json string
-            else //else its just a string
-                msgPayload=messagePayload;
-
-            ByteBuf payload = ByteBufFromArray((const uint8_t *)msgPayload.data(), msgPayload.length());
-            auto onPublishComplete = [topic](Mqtt::MqttConnection &, uint16_t, int)
+            if(messagePayload != "") //if empty string, then dont publish anything
             {
-                fprintf(stdout, "Publish Complete on topic %s\n",topic.c_str());
-            };
-            connection->Publish(topic.c_str(), AWS_MQTT_QOS_AT_LEAST_ONCE, false, payload, onPublishComplete);
+                //check if message is a string or path to a shell-script
+                if(IsValidFile(messagePayload.c_str())) //its a file in the rootfs
+                    msgPayload=InvokeShellCommand(messagePayload.c_str());//e.g /usr/sbin/read-temperature.sh shall print json string
+                else //else its just a string
+                    msgPayload=messagePayload;
 
+                ByteBuf payload = ByteBufFromArray((const uint8_t *)msgPayload.data(), msgPayload.length());
+                auto onPublishComplete = [topic](Mqtt::MqttConnection &, uint16_t, int)
+                {
+                    fprintf(stdout, "Publish Complete on topic %s\n",topic.c_str());
+                };
+                connection->Publish(topic.c_str(), AWS_MQTT_QOS_AT_LEAST_ONCE, false, payload, onPublishComplete);
+            }
             if(messageCount>=0)//if count == -1 then run the loop forever till SIGTERM is received
                 ++publishedCount;
 
