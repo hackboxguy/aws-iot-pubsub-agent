@@ -45,7 +45,7 @@ int LinuxDomainSocketSrv::RunServer()
     s = socket(AF_UNIX, SOCK_STREAM, 0);
     if( -1 == s )
     {
-        //printf("Error on socket() call \n");
+        printf("Error on socket() call \n");
         return 1;
     }
 
@@ -55,12 +55,12 @@ int LinuxDomainSocketSrv::RunServer()
     len = strlen(local.sun_path) + sizeof(local.sun_family);
     if( bind(s, (struct sockaddr*)&local, len) != 0)
     {
-        //printf("Error on binding socket \n");
+        printf("Error on binding socket \n");
         return 1;
     }
     if( listen(s, nIncomingConnections) != 0 )
     {
-        //printf("Error on listen call \n");
+        printf("Error on listen call \n");
         ;
     }
 
@@ -68,13 +68,13 @@ int LinuxDomainSocketSrv::RunServer()
     while (bWaiting)
     {
         unsigned int sock_len = 0;
-        //printf("Waiting for connection.... \n");
+        printf("Waiting for connection.... \n");
         if( (s2 = accept(s, (struct sockaddr*)&remote, &sock_len)) == -1 )
         {
-            //printf("Error on accept() call \n");
+            printf("Error on accept() call \n");
             return 1;
         }
-        //printf("Server connected \n");
+        printf("Server connected \n");
         int data_recv = 0;
         char recv_buf[100];
         char send_buf[200];
@@ -84,7 +84,7 @@ int LinuxDomainSocketSrv::RunServer()
             data_recv = recv(s2, recv_buf, 100, 0);
             if(data_recv > 0)
             {
-                //printf("Data received: %d : %s \n", data_recv, recv_buf);
+                printf("Data received: %d : %s \n", data_recv, recv_buf);
                 std::string strTopic,strData;
                 if(ParseJsonData(recv_buf,strTopic,strData) ==0)
                 {
@@ -102,8 +102,8 @@ int LinuxDomainSocketSrv::RunServer()
                 //if( send(s2, send_buf, strlen(send_buf)*sizeof(char), 0) == -1 )
                 //    printf("Error on send() call \n");
             }
-            //else
-            //    printf("Error on recv() call \n");
+            else
+                printf("Error on recv() call \n");
         }while(data_recv > 0);
         close(s2);
     }
