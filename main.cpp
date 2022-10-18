@@ -6,9 +6,7 @@
 #include <aws/crt/StlAllocator.h>
 #include <aws/crt/auth/Credentials.h>
 #include <aws/crt/io/TlsOptions.h>
-
 #include <aws/iot/MqttClient.h>
-
 #include <algorithm>
 #include <aws/crt/UUID.h>
 #include <chrono>
@@ -18,7 +16,9 @@
 #include <fstream>
 //#include <aws/common/CommandLineUtils.h>
 #include "CommandLineUtils.h"
-
+#include "LinuxDomainSocketSrv.h"
+#include "Publisher.h"
+static const char* linuxDomainSockPath = "/tmp/aws-iot-demo-agent-ipc-node";
 using namespace Aws::Crt;
 
 //custom extensions to sample program
@@ -117,6 +117,9 @@ int main(int argc, char *argv[])
 
     /* Get a MQTT client connection from the command parser */
     auto connection = cmdUtils.BuildMQTTConnection();
+    TopicPublisher::Publisher publisher(connection);//this will start a monoshot thread
+    //start linux-domain-socket server
+    DomainSock::LinuxDomainSocketSrv DomainSocket(linuxDomainSockPath,&publisher);
 
     /*
      * In a real world application you probably don't want to enforce synchronous behavior
@@ -262,19 +265,23 @@ int main(int argc, char *argv[])
                 else //else its just a string
                     msgPayload=messagePayload;
 
-                ByteBuf payload = ByteBufFromArray((const uint8_t *)msgPayload.data(), msgPayload.length());
-                auto onPublishComplete = [topic](Mqtt::MqttConnection &, uint16_t, int)
-                {
-                    fprintf(stdout, "Publish Complete on topic %s\n",topic.c_str());
-                };
-                connection->Publish(topic.c_str(), AWS_MQTT_QOS_AT_LEAST_ONCE, false, payload, onPublishComplete);
+                //ByteBuf payload = ByteBufFromArray((const uint8_t *)msgPayload.data(), msgPayload.length());
+                //auto onPublishComplete = [topic](Mqtt::MqttConnection &, uint16_t, int)
+                //{
+                //    fprintf(stdout, "Publish Complete on topic %s\n",topic.c_str());
+                //};
+                //connection->Publish(topic.c_str(), AWS_MQTT_QOS_AT_LEAST_ONCE, false, payload, onPublishComplete);
+
+                //serialized the publish requests through publisher thread(external publish request may come from linux-domain-socket)
+                std::string tp(topic.c_str());
+                std::string pl(msgPayload.c_str());
+                publisher.publishTopic(tp,pl);
             }
             if(messageCount>=0)//if count == -1 then run the loop forever till SIGTERM is received
                 ++publishedCount;
 
             std::this_thread::sleep_for(std::chrono::milliseconds(1000 * intervalSec));
         }
-        //TODO wait in a thread to listen to linux-domain socket and wait for message arrival from different process
 
         {
             std::unique_lock<std::mutex> receivedLock(receiveMutex);
@@ -285,7 +292,6 @@ int main(int argc, char *argv[])
         fprintf(stdout, "Just Waiting for SIGTERM or CTRL+x\n");
         while(1)
                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
         /*
          * Unsubscribe from the topic.
          */
@@ -304,7 +310,6 @@ int main(int argc, char *argv[])
     {
         exit(-1);
     }
-
     return 0;
 }
 /*****************************************************************************/
