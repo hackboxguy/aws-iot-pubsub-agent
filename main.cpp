@@ -24,6 +24,7 @@ using namespace Aws::Crt;
 //custom extensions to sample program
 #define MAX_PAYLOAD_SIZE 4096 //lets limit the message size to 4kb
 #define SUBSCRIBER_DATA_FILE "/tmp/subscriber-data-file.txt"
+#define INIT_ACCESSORY_FILE_PATH "/usr/sbin/init-accessories.sh"
 String InvokeShellCommand(const char* command);
 bool IsValidFile(const char* filepath);
 
@@ -252,6 +253,9 @@ int main(int argc, char *argv[])
 
         connection->Subscribe(subtopic.c_str(), AWS_MQTT_QOS_AT_LEAST_ONCE, onMessage, onSubAck);
         subscribeFinishedPromise.get_future().wait();
+
+	if ( IsValidFile(INIT_ACCESSORY_FILE_PATH) )
+		InvokeShellCommand(INIT_ACCESSORY_FILE_PATH);
 
         uint32_t publishedCount = 0;
         String msgPayload;
