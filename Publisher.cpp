@@ -27,19 +27,19 @@ Publisher::~Publisher()
 
 int Publisher::monoshot_callback_function(void* pUserData,ADThreadProducer* pObj)
 {
-    std::cout<<"Publisher::monoshot_callback_function"<<std::endl;
+    //std::cout<<"Publisher::monoshot_callback_function"<<std::endl;
     while (!PublishList.empty()) //this thread goes to sleep if list is empty
     {
         PublishEntry entry = PublishList.front();
         //TODO: publish the data on a given topic
-        std::cout<<"topic:"<<entry.Topic<<" data:"<<entry.Data<<std::endl;
+        //std::cout<<"topic:"<<entry.Topic<<" data:"<<entry.Data<<std::endl;
 
         String tp(entry.Topic.c_str());
         String pl(entry.Data.c_str());
         ByteBuf payload = ByteBufFromArray((const uint8_t *)pl.data(), pl.length());
         auto onPublishComplete = [tp](Mqtt::MqttConnection &, uint16_t, int)
         {
-            fprintf(stdout, "Publish Complete on topic %s\n",tp.c_str());
+            ; //fprintf(stdout, "Publish Complete on topic %s\n",tp.c_str());
         };
         connection->Publish(tp.c_str(), AWS_MQTT_QOS_AT_LEAST_ONCE, false, payload, onPublishComplete);
         PublishList.pop_front();//after processing delete the entry

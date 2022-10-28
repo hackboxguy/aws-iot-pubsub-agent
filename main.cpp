@@ -194,10 +194,10 @@ int main(int argc, char *argv[])
             {
                 std::lock_guard<std::mutex> lock(receiveMutex);
                 ++receivedCount;
-                fprintf(stdout, "Publish #%d received on topic %s\n", receivedCount, topic.c_str());
-                fprintf(stdout, "Message: ");
+                //fprintf(stdout, "Publish #%d received on topic %s\n", receivedCount, topic.c_str());
+                //fprintf(stdout, "Message: ");
                 fwrite(byteBuf.buffer, 1, byteBuf.len, stdout);
-                fprintf(stdout, "\n");
+                //fprintf(stdout, "\n");
 
                 //a handler needs to process incoming message
                 //check if user has passed a handler binary or script, and let it process the data
